@@ -1,4 +1,13 @@
-importScripts('../common/constants.js');
+if (typeof importScripts === 'function') {
+  importScripts('../common/constants.js');
+}
+if (typeof require !== 'undefined') {
+  const c = require('../common/constants.js');
+  var FILTERS = c.FILTERS;
+  var DOWNLOAD_STATES = c.DOWNLOAD_STATES;
+  var DEFAULT_SETTINGS = c.DEFAULT_SETTINGS;
+  var MSG = c.MSG;
+}
 
 // ── State ────────────────────────────────────────────────────────────────────
 let downloads = [];   // { id, url, filename, state, downloadId, progress, speed, error, addedAt }
@@ -404,4 +413,22 @@ function filenameFromUrl(url) {
   } catch {
     return 'download';
   }
+}
+
+if (typeof module !== 'undefined') {
+  module.exports = {
+    addDownloads,
+    processQueue,
+    startDownload,
+    filenameFromUrl,
+    sanitizeDownload,
+    broadcastUpdate,
+    openManager,
+    get downloads() { return downloads; },
+    set downloads(val) { downloads = val; },
+    get settings() { return settings; },
+    set settings(val) { settings = val; },
+    get nextId() { return nextId; },
+    set nextId(val) { nextId = val; }
+  };
 }

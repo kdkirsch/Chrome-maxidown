@@ -189,25 +189,35 @@ document.addEventListener('DOMContentLoaded', () => {
     $('totalSpeed').textContent = formatSpeed(totalSpeed);
   }
 
-  // ── Formatting ─────────────────────────────────────────────────────────
-  function formatBytes(bytes) {
-    if (bytes === 0) return '0 B';
-    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return (bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0) + ' ' + units[i];
-  }
-
-  function formatSpeed(bytesPerSec) {
-    return formatBytes(bytesPerSec) + '/s';
-  }
-
-  function escHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str || '';
-    return div.innerHTML;
-  }
-
-  function escAttr(str) {
-    return (str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  }
+  // ── Formatting (delegating to module-level functions) ──────────────────
+  function formatBytes(bytes) { return _formatBytes(bytes); }
+  function formatSpeed(bytesPerSec) { return _formatSpeed(bytesPerSec); }
+  function escHtml(str) { return _escHtml(str); }
+  function escAttr(str) { return _escAttr(str); }
 });
+
+// ── Exported utility functions ────────────────────────────────────────────
+function _formatBytes(bytes) {
+  if (bytes === 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return (bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0) + ' ' + units[i];
+}
+
+function _formatSpeed(bytesPerSec) {
+  return _formatBytes(bytesPerSec) + '/s';
+}
+
+function _escHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+
+function _escAttr(str) {
+  return (str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+if (typeof module !== 'undefined') {
+  module.exports = { formatBytes: _formatBytes, formatSpeed: _formatSpeed, escHtml: _escHtml, escAttr: _escAttr };
+}

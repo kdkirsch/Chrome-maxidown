@@ -100,9 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function wildcardToRegex(pattern) {
-    const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
-    const withWildcards = escaped.replace(/\*/g, '.*').replace(/\?/g, '.');
-    return new RegExp(withWildcards, 'i');
+    return _wildcardToRegex(pattern);
   }
 
   // ── Render ─────────────────────────────────────────────────────────────
@@ -273,6 +271,12 @@ document.addEventListener('DOMContentLoaded', () => {
   renderItems();
 });
 
+function _wildcardToRegex(pattern) {
+  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+  const withWildcards = escaped.replace(/\*/g, '.*').replace(/\?/g, '.');
+  return new RegExp(withWildcards, 'i');
+}
+
 function escHtml(str) {
   const div = document.createElement('div');
   div.textContent = str || '';
@@ -281,4 +285,8 @@ function escHtml(str) {
 
 function escAttr(str) {
   return (str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+if (typeof module !== 'undefined') {
+  module.exports = { wildcardToRegex: _wildcardToRegex, escHtml, escAttr };
 }

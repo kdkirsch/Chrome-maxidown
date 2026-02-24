@@ -1,15 +1,17 @@
-(() => {
-  // Prevent double injection
-  if (window.__maxidownScanned) return;
-  window.__maxidownScanned = true;
+const _maxidownScanner = (() => {
+  // Prevent double injection in browser context
+  if (typeof window !== 'undefined' && window.__maxidownScanned) return {};
+  if (typeof window !== 'undefined') window.__maxidownScanned = true;
 
-  chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-    if (msg.action === 'scanPage') {
-      const result = scanPage();
-      sendResponse(result);
-    }
-    return true;
-  });
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+    chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+      if (msg.action === 'scanPage') {
+        const result = scanPage();
+        sendResponse(result);
+      }
+      return true;
+    });
+  }
 
   function scanPage() {
     const links = new Map();
@@ -229,4 +231,10 @@
   function parseSrcset(srcset) {
     return srcset.split(',').map(entry => entry.trim().split(/\s+/)[0]).filter(Boolean);
   }
+
+  return { resolveUrl, filenameFromUrl, extensionFromUrl, isPageNavigation, isImageUrl, parseSrcset, scanPage };
 })();
+
+if (typeof module !== 'undefined') {
+  module.exports = _maxidownScanner;
+}
