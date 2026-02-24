@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>MaxiDown — Download Manager</title>
+  <link rel="stylesheet" href="manager.css">
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <img src="../icons/icon48.png" alt="" class="logo">
+        <h1>MaxiDown</h1>
+      </div>
+      <div class="header-stats">
+        <div class="stat-pill" id="speedDisplay">
+          <span class="stat-icon">&#9660;</span>
+          <span id="totalSpeed">0 B/s</span>
+        </div>
+        <div class="stat-pill">
+          <span id="activeLabel">0</span> active
+        </div>
+        <div class="stat-pill">
+          <span id="queuedLabel">0</span> queued
+        </div>
+      </div>
+      <div class="header-right">
+        <button class="btn" id="pauseAll" title="Pause all">&#9646;&#9646; Pause All</button>
+        <button class="btn" id="resumeAll" title="Resume all">&#9654; Resume All</button>
+        <button class="btn" id="clearComplete" title="Clear completed">&#10005; Clear Done</button>
+        <button class="btn btn-settings" id="toggleSettings" title="Settings">&#9881;</button>
+      </div>
+    </header>
+
+    <!-- Settings panel (hidden by default) -->
+    <div class="settings-panel" id="settingsPanel" style="display:none">
+      <h3>Settings</h3>
+      <div class="settings-grid">
+        <div class="setting-row">
+          <label>Max concurrent downloads:</label>
+          <input type="number" id="settMaxConcurrent" min="1" max="20" value="4">
+        </div>
+        <div class="setting-row">
+          <label>Default subfolder:</label>
+          <input type="text" id="settDefaultPath" placeholder="Leave empty for default">
+        </div>
+        <div class="setting-row">
+          <label>On filename conflict:</label>
+          <select id="settConflictAction">
+            <option value="uniquify">Rename (add number)</option>
+            <option value="overwrite">Overwrite</option>
+            <option value="prompt">Prompt</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <label>Auto-start queued downloads:</label>
+          <input type="checkbox" id="settAutoStart" checked>
+        </div>
+      </div>
+      <button class="btn btn-save" id="saveSettings">Save Settings</button>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="filter-bar">
+      <button class="filter-btn active" data-filter="all">All</button>
+      <button class="filter-btn" data-filter="downloading">Active</button>
+      <button class="filter-btn" data-filter="queued">Queued</button>
+      <button class="filter-btn" data-filter="paused">Paused</button>
+      <button class="filter-btn" data-filter="complete">Complete</button>
+      <button class="filter-btn" data-filter="error">Failed</button>
+    </div>
+
+    <!-- Download list -->
+    <div class="download-list" id="downloadList">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">&#128229;</div>
+        <p>No downloads yet.</p>
+        <p class="empty-hint">Use the toolbar icon to grab links and media from any page.</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="../common/constants.js"></script>
+  <script src="manager.js"></script>
+</body>
+</html>

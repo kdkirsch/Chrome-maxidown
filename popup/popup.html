@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup">
+    <div class="header">
+      <img src="../icons/icon48.png" alt="MaxiDown" class="logo">
+      <h1>MaxiDown</h1>
+    </div>
+
+    <div class="stats" id="stats">
+      <div class="stat">
+        <span class="stat-value" id="activeCount">0</span>
+        <span class="stat-label">Active</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value" id="queuedCount">0</span>
+        <span class="stat-label">Queued</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value" id="completeCount">0</span>
+        <span class="stat-label">Done</span>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="grabLinks" class="btn btn-primary">
+        <span class="btn-icon">&#128279;</span>
+        Grab All Links
+      </button>
+      <button id="grabMedia" class="btn btn-primary">
+        <span class="btn-icon">&#127912;</span>
+        Grab All Media
+      </button>
+      <button id="openManager" class="btn btn-secondary">
+        <span class="btn-icon">&#128203;</span>
+        Open Manager
+      </button>
+    </div>
+
+    <div class="active-downloads" id="activeDownloads"></div>
+  </div>
+
+  <script src="../common/constants.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

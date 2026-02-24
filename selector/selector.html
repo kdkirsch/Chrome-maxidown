@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>MaxiDown — Select Downloads</title>
+  <link rel="stylesheet" href="selector.css">
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <img src="../icons/icon48.png" alt="" class="logo">
+        <h1>MaxiDown</h1>
+        <span class="page-title" id="pageTitle"></span>
+      </div>
+      <div class="header-right">
+        <button class="btn btn-accent" id="downloadSelected">
+          Download Selected (<span id="selectedCount">0</span>)
+        </button>
+      </div>
+    </header>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" data-tab="links">Links</button>
+      <button class="tab" data-tab="media">Media</button>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="filter-chips" id="filterChips"></div>
+      <div class="filter-custom">
+        <input type="text" id="customFilter" placeholder="Custom filter (e.g. *.pdf, /pattern/i)">
+        <button class="btn btn-small" id="applyFilter" title="Apply filter">Apply</button>
+        <button class="btn btn-small" id="clearFilter" title="Clear filter">Clear</button>
+      </div>
+      <div class="selection-tools">
+        <button class="btn btn-small" id="selectAll">Select All</button>
+        <button class="btn btn-small" id="selectNone">Select None</button>
+        <button class="btn btn-small" id="selectInvert">Invert</button>
+      </div>
+    </div>
+
+    <!-- Info bar -->
+    <div class="info-bar">
+      <span id="itemCount">0 items</span>
+      <span id="filterInfo"></span>
+    </div>
+
+    <!-- File list -->
+    <div class="file-list" id="fileList"></div>
+
+    <!-- Download Options -->
+    <div class="download-options">
+      <div class="option-group">
+        <label for="subfolder">Save to subfolder:</label>
+        <input type="text" id="subfolder" placeholder="Optional subfolder name">
+      </div>
+    </div>
+  </div>
+
+  <script src="../common/constants.js"></script>
+  <script src="selector.js"></script>
+</body>
+</html>
