@@ -7,26 +7,30 @@ if (typeof require !== 'undefined') {
   var DOWNLOAD_STATES = c.DOWNLOAD_STATES;
   var DEFAULT_SETTINGS = c.DEFAULT_SETTINGS;
   var MSG = c.MSG;
+  var PathUtils = c.PathUtils;
 }
 
 // ── State ────────────────────────────────────────────────────────────────────
-let downloads = [];   // { id, url, filename, state, downloadId, progress, speed, error, addedAt }
+let downloads = [];   // { id, url, filename, subfolder, state, downloadId, progress, speed, error, addedAt }
 let settings = { ...DEFAULT_SETTINGS };
 let nextId = 1;
+let recentPaths = [];
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.local.get(['settings', 'nextId'], (res) => {
+  chrome.storage.local.get(['settings', 'nextId', 'recentPaths'], (res) => {
     if (res.settings) settings = { ...DEFAULT_SETTINGS, ...res.settings };
     if (res.nextId) nextId = res.nextId;
+    if (res.recentPaths) recentPaths = res.recentPaths;
   });
   createContextMenus();
 });
 
 chrome.runtime.onStartup.addListener(() => {
-  chrome.storage.local.get(['settings', 'nextId'], (res) => {
+  chrome.storage.local.get(['settings', 'nextId', 'recentPaths'], (res) => {
     if (res.settings) settings = { ...DEFAULT_SETTINGS, ...res.settings };
     if (res.nextId) nextId = res.nextId;
+    if (res.recentPaths) recentPaths = res.recentPaths;
   });
 });
 
@@ -108,14 +112,18 @@ function openManager() {
 
 // ── Download Queue ───────────────────────────────────────────────────────────
 function addDownloads(items) {
+  let batchSubfolder = '';
   for (const item of items) {
     const filename = filenameFromUrl(item.url);
+    const rawSubfolder = item.subfolder || settings.defaultPath;
+    const subfolder = PathUtils.sanitize(rawSubfolder);
+    if (subfolder) batchSubfolder = subfolder;
     downloads.push({
       id: nextId++,
       url: item.url,
       filename: item.filename || filename,
       referrer: item.referrer || '',
-      subfolder: item.subfolder || settings.defaultPath,
+      subfolder,
       state: settings.autoStart ? DOWNLOAD_STATES.QUEUED : DOWNLOAD_STATES.PAUSED,
       downloadId: null,
       progress: 0,
@@ -125,6 +133,11 @@ function addDownloads(items) {
       error: null,
       addedAt: Date.now()
     });
+  }
+  // Track recently used paths
+  if (batchSubfolder) {
+    recentPaths = [batchSubfolder, ...recentPaths.filter(p => p !== batchSubfolder)].slice(0, 10);
+    chrome.storage.local.set({ recentPaths });
   }
   chrome.storage.local.set({ nextId });
   processQueue();
@@ -148,15 +161,15 @@ function startDownload(item) {
   item.state = DOWNLOAD_STATES.DOWNLOADING;
   item.error = null;
 
+  const subfolder = PathUtils.sanitize(item.subfolder);
+
   const options = {
     url: item.url,
     conflictAction: settings.conflictAction
   };
 
-  if (item.subfolder && item.filename) {
-    options.filename = item.subfolder
-      ? `${item.subfolder}/${item.filename}`
-      : item.filename;
+  if (subfolder && item.filename) {
+    options.filename = `${subfolder}/${item.filename}`;
   } else if (item.filename) {
     options.filename = item.filename;
   }
@@ -376,6 +389,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       sendResponse({ ok: true });
       break;
 
+    case MSG.GET_RECENT_PATHS:
+      sendResponse({ recentPaths });
+      break;
+
     default:
       sendResponse({ error: 'Unknown action' });
   }
@@ -393,6 +410,7 @@ function sanitizeDownload(d) {
     id: d.id,
     url: d.url,
     filename: d.filename,
+    subfolder: d.subfolder || '',
     state: d.state,
     progress: d.progress,
     bytesReceived: d.bytesReceived,

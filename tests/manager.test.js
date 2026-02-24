@@ -1,4 +1,4 @@
-const { formatBytes, formatSpeed, escHtml, escAttr } = require('../manager/manager');
+const { formatBytes, formatSpeed, formatEta, escHtml, escAttr } = require('../manager/manager');
 
 describe('manager.js', () => {
   describe('formatBytes', () => {
@@ -39,6 +39,39 @@ describe('manager.js', () => {
       expect(formatSpeed(0)).toBe('0 B/s');
       expect(formatSpeed(1024)).toBe('1.0 KB/s');
       expect(formatSpeed(1048576)).toBe('1.0 MB/s');
+    });
+  });
+
+  describe('formatEta', () => {
+    test('returns empty string when not downloading', () => {
+      expect(formatEta({ state: 'queued', speed: 100, totalBytes: 1000, bytesReceived: 0 })).toBe('');
+      expect(formatEta({ state: 'complete', speed: 100, totalBytes: 1000, bytesReceived: 1000 })).toBe('');
+    });
+
+    test('returns empty string when speed is 0', () => {
+      expect(formatEta({ state: 'downloading', speed: 0, totalBytes: 1000, bytesReceived: 0 })).toBe('');
+    });
+
+    test('returns empty string when totalBytes is unknown', () => {
+      expect(formatEta({ state: 'downloading', speed: 100, totalBytes: 0, bytesReceived: 50 })).toBe('');
+    });
+
+    test('formats seconds', () => {
+      expect(formatEta({ state: 'downloading', speed: 100, totalBytes: 1000, bytesReceived: 700 })).toBe('3s left');
+    });
+
+    test('formats minutes and seconds', () => {
+      // 9000 remaining, 100/s = 90 seconds = 1m 30s
+      expect(formatEta({ state: 'downloading', speed: 100, totalBytes: 10000, bytesReceived: 1000 })).toBe('1m 30s left');
+    });
+
+    test('formats hours and minutes', () => {
+      // 7200000 remaining, 1000/s = 7200s = 2h 0m
+      expect(formatEta({ state: 'downloading', speed: 1000, totalBytes: 7200000, bytesReceived: 0 })).toBe('2h 0m left');
+    });
+
+    test('returns empty when download is complete (remaining <= 0)', () => {
+      expect(formatEta({ state: 'downloading', speed: 100, totalBytes: 1000, bytesReceived: 1000 })).toBe('');
     });
   });
 

@@ -47,9 +47,30 @@ document.addEventListener('DOMContentLoaded', () => {
     panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
   });
 
+  // Validate path input in settings
+  $('settDefaultPath').addEventListener('input', () => {
+    const val = $('settDefaultPath').value.trim();
+    const result = PathUtils.validate(val);
+    const errorEl = $('settPathError');
+    const hintEl = $('settPathHint');
+    if (!result.valid) {
+      errorEl.textContent = result.error;
+      errorEl.classList.add('visible');
+      hintEl.style.display = 'none';
+      $('settDefaultPath').classList.add('input-error');
+    } else {
+      errorEl.classList.remove('visible');
+      hintEl.style.display = '';
+      $('settDefaultPath').classList.remove('input-error');
+    }
+  });
+
   $('saveSettings').addEventListener('click', () => {
+    const pathVal = $('settDefaultPath').value.trim();
+    const validation = PathUtils.validate(pathVal);
+    if (!validation.valid) return; // don't save with invalid path
     settings.maxConcurrent = parseInt($('settMaxConcurrent').value) || 4;
-    settings.defaultPath = $('settDefaultPath').value.trim();
+    settings.defaultPath = pathVal;
     settings.conflictAction = $('settConflictAction').value;
     settings.autoStart = $('settAutoStart').checked;
     chrome.runtime.sendMessage({ action: MSG.SAVE_SETTINGS, settings });
@@ -115,20 +136,29 @@ document.addEventListener('DOMContentLoaded', () => {
       : d.state === DOWNLOAD_STATES.ERROR ? 'error'
       : 'downloading';
 
+    const eta = formatEta(d);
+
     return `
       <div class="dl-item">
         <div class="dl-row">
           <div class="dl-status-icon ${d.state}">${statusIcon}</div>
           <div class="dl-info">
-            <div class="dl-filename" title="${escAttr(d.filename)}">${escHtml(d.filename)}</div>
+            <div class="dl-filename" title="${escAttr(d.filename)}">
+              ${d.subfolder ? `<span class="dl-subfolder-icon">&#128193;</span> <span class="dl-subfolder">${escHtml(d.subfolder)}/</span>` : ''}${escHtml(d.filename)}
+            </div>
             <div class="dl-url" title="${escAttr(d.url)}">${escHtml(d.url)}</div>
             <div class="dl-meta">
+              ${d.state === DOWNLOAD_STATES.DOWNLOADING
+                ? `<span class="dl-percent">${d.progress}%</span>` : ''}
               ${d.state === DOWNLOAD_STATES.DOWNLOADING && d.speed > 0
                 ? `<span class="dl-speed">${formatSpeed(d.speed)}</span>` : ''}
               ${d.totalBytes > 0
                 ? `<span class="dl-size">${formatBytes(d.bytesReceived)} / ${formatBytes(d.totalBytes)}</span>`
                 : d.bytesReceived > 0 ? `<span class="dl-size">${formatBytes(d.bytesReceived)}</span>` : ''}
-              ${d.state === DOWNLOAD_STATES.COMPLETE ? '<span style="color:var(--success)">Complete</span>' : ''}
+              ${eta ? `<span class="dl-eta">${eta}</span>` : ''}
+              ${d.state === DOWNLOAD_STATES.COMPLETE
+                ? `<span style="color:var(--success)">Complete</span>${d.totalBytes > 0 ? ` <span class="dl-size">(${formatBytes(d.totalBytes)})</span>` : ''}` : ''}
+              ${d.state === DOWNLOAD_STATES.QUEUED ? '<span style="color:var(--warning)">Queued</span>' : ''}
               ${d.error ? `<span class="dl-error-msg">${escHtml(d.error)}</span>` : ''}
             </div>
           </div>
@@ -192,6 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Formatting (delegating to module-level functions) ──────────────────
   function formatBytes(bytes) { return _formatBytes(bytes); }
   function formatSpeed(bytesPerSec) { return _formatSpeed(bytesPerSec); }
+  function formatEta(d) { return _formatEta(d); }
   function escHtml(str) { return _escHtml(str); }
   function escAttr(str) { return _escAttr(str); }
 });
@@ -208,6 +239,18 @@ function _formatSpeed(bytesPerSec) {
   return _formatBytes(bytesPerSec) + '/s';
 }
 
+function _formatEta(d) {
+  if (d.state !== 'downloading' || !d.speed || d.speed <= 0 || !d.totalBytes) return '';
+  const remaining = d.totalBytes - d.bytesReceived;
+  if (remaining <= 0) return '';
+  const seconds = Math.ceil(remaining / d.speed);
+  if (seconds < 60) return `${seconds}s left`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s left`;
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  return `${h}h ${m}m left`;
+}
+
 function _escHtml(str) {
   const div = document.createElement('div');
   div.textContent = str || '';
@@ -219,5 +262,5 @@ function _escAttr(str) {
 }
 
 if (typeof module !== 'undefined') {
-  module.exports = { formatBytes: _formatBytes, formatSpeed: _formatSpeed, escHtml: _escHtml, escAttr: _escAttr };
+  module.exports = { formatBytes: _formatBytes, formatSpeed: _formatSpeed, formatEta: _formatEta, escHtml: _escHtml, escAttr: _escAttr };
 }

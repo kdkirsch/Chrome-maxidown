@@ -54,9 +54,16 @@
     <!-- Download Options -->
     <div class="download-options">
       <div class="option-group">
-        <label for="subfolder">Save to subfolder:</label>
-        <input type="text" id="subfolder" placeholder="Optional subfolder name">
+        <label for="subfolder">Download to:</label>
+        <div class="path-input-wrap">
+          <input type="text" id="subfolder" placeholder="e.g. photos/vacation">
+          <button class="btn btn-small btn-recent" id="recentPathsBtn" title="Recent directories">&#9660;</button>
+          <div class="recent-paths-dropdown" id="recentPathsDropdown"></div>
+        </div>
+        <span class="path-hint">relative to Downloads folder</span>
       </div>
+      <div class="path-preview" id="pathPreview"></div>
+      <div class="path-error" id="pathError"></div>
     </div>
   </div>
 

@@ -67,9 +67,40 @@ const MSG = {
   OPEN_SELECTOR: 'openSelector',
   OPEN_MANAGER: 'openManager',
   RETRY_DOWNLOAD: 'retryDownload',
-  REMOVE_DOWNLOAD: 'removeDownload'
+  REMOVE_DOWNLOAD: 'removeDownload',
+  GET_RECENT_PATHS: 'getRecentPaths'
+};
+
+const PathUtils = {
+  validate(path) {
+    if (!path || !path.trim()) return { valid: true, error: null };
+    const p = path.trim();
+    if (p.length > 200) return { valid: false, error: 'Path too long (max 200 characters)' };
+    if (/[<>:"|?*]/.test(p)) return { valid: false, error: 'Path contains invalid characters: < > : " | ? *' };
+    if (/\.\.[\\/]/.test(p) || p === '..') return { valid: false, error: 'Path traversal (..) is not allowed' };
+    if (/^[/\\]/.test(p) || /^[a-zA-Z]:/.test(p)) return { valid: false, error: 'Absolute paths are not allowed' };
+    return { valid: true, error: null };
+  },
+
+  sanitize(path) {
+    if (!path) return '';
+    let p = path.trim();
+    p = p.replace(/\\/g, '/');
+    p = p.replace(/[<>:"|?*]/g, '');
+    p = p.replace(/\.\.\/|\.\.$/g, '');
+    p = p.replace(/\/+/g, '/');
+    p = p.replace(/^\/|\/$/g, '');
+    return p;
+  },
+
+  buildPreview(subfolder, filename) {
+    const parts = ['Downloads'];
+    if (subfolder && subfolder.trim()) parts.push(subfolder.trim());
+    if (filename) parts.push(filename);
+    return parts.join(' / ');
+  }
 };
 
 if (typeof module !== 'undefined') {
-  module.exports = { FILTERS, DOWNLOAD_STATES, DEFAULT_SETTINGS, MSG };
+  module.exports = { FILTERS, DOWNLOAD_STATES, DEFAULT_SETTINGS, MSG, PathUtils };
 }

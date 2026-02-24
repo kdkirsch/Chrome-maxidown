@@ -1,10 +1,11 @@
 // Must load before service-worker since it uses importScripts
-const { DOWNLOAD_STATES, DEFAULT_SETTINGS, MSG } = require('../common/constants');
+const { DOWNLOAD_STATES, DEFAULT_SETTINGS, MSG, PathUtils } = require('../common/constants');
 
 // Provide constants as globals (simulates importScripts behavior)
 global.DOWNLOAD_STATES = DOWNLOAD_STATES;
 global.DEFAULT_SETTINGS = DEFAULT_SETTINGS;
 global.MSG = MSG;
+global.PathUtils = PathUtils;
 
 // Suppress setInterval (the progress poller)
 jest.useFakeTimers();
@@ -43,11 +44,12 @@ describe('service-worker.js', () => {
   });
 
   describe('sanitizeDownload', () => {
-    test('returns only safe properties', () => {
+    test('returns safe properties including subfolder', () => {
       const input = {
         id: 1,
         url: 'https://example.com/file.pdf',
         filename: 'file.pdf',
+        subfolder: 'photos',
         state: DOWNLOAD_STATES.QUEUED,
         progress: 0,
         bytesReceived: 0,
@@ -56,14 +58,14 @@ describe('service-worker.js', () => {
         error: null,
         addedAt: 123456,
         downloadId: 100,      // internal — should not leak
-        referrer: 'https://ref.com',  // internal
-        subfolder: 'path'     // internal
+        referrer: 'https://ref.com'  // internal
       };
       const result = sw.sanitizeDownload(input);
       expect(result).toEqual({
         id: 1,
         url: 'https://example.com/file.pdf',
         filename: 'file.pdf',
+        subfolder: 'photos',
         state: DOWNLOAD_STATES.QUEUED,
         progress: 0,
         bytesReceived: 0,
@@ -74,7 +76,11 @@ describe('service-worker.js', () => {
       });
       expect(result).not.toHaveProperty('downloadId');
       expect(result).not.toHaveProperty('referrer');
-      expect(result).not.toHaveProperty('subfolder');
+    });
+
+    test('returns empty string for missing subfolder', () => {
+      const result = sw.sanitizeDownload({ id: 1, url: '', filename: '', state: 'queued', progress: 0, bytesReceived: 0, totalBytes: 0, speed: 0, error: null, addedAt: 0 });
+      expect(result.subfolder).toBe('');
     });
   });
 
@@ -132,9 +138,19 @@ describe('service-worker.js', () => {
       expect(sw.downloads[0].subfolder).toBe('custom');
     });
 
+    test('sanitizes subfolder path', () => {
+      sw.addDownloads([{ url: 'https://example.com/file.pdf', subfolder: '  photos//vacation/  ' }]);
+      expect(sw.downloads[0].subfolder).toBe('photos/vacation');
+    });
+
     test('persists nextId to chrome storage', () => {
       sw.addDownloads([{ url: 'https://example.com/file.pdf' }]);
       expect(chrome.storage.local.set).toHaveBeenCalledWith({ nextId: expect.any(Number) });
+    });
+
+    test('tracks recent paths in storage', () => {
+      sw.addDownloads([{ url: 'https://example.com/file.pdf', subfolder: 'my-folder' }]);
+      expect(chrome.storage.local.set).toHaveBeenCalledWith({ recentPaths: expect.arrayContaining(['my-folder']) });
     });
   });
 
@@ -203,6 +219,24 @@ describe('service-worker.js', () => {
       );
     });
 
+    test('sanitizes subfolder in download path', () => {
+      const item = {
+        id: 1,
+        url: 'https://example.com/file.pdf',
+        filename: 'file.pdf',
+        subfolder: '  my-folder//sub/  ',
+        state: DOWNLOAD_STATES.QUEUED,
+        error: null
+      };
+      sw.startDownload(item);
+      expect(chrome.downloads.download).toHaveBeenCalledWith(
+        expect.objectContaining({
+          filename: 'my-folder/sub/file.pdf'
+        }),
+        expect.any(Function)
+      );
+    });
+
     test('handles download error from Chrome API', () => {
       chrome.downloads.download.mockImplementation((opts, cb) => {
         chrome.runtime.lastError = { message: 'Network error' };
@@ -243,6 +277,7 @@ describe('service-worker.js', () => {
         id: 1,
         url: 'https://example.com/file.pdf',
         filename: 'file.pdf',
+        subfolder: 'photos',
         state: DOWNLOAD_STATES.DOWNLOADING,
         progress: 50,
         bytesReceived: 500,

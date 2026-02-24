@@ -177,6 +177,25 @@ body {
   padding: 5px 8px;
 }
 
+.setting-row input[type="text"].input-error {
+  border-color: var(--error);
+}
+
+.setting-hint {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.setting-error {
+  font-size: 10px;
+  color: var(--error);
+  display: none;
+}
+
+.setting-error.visible {
+  display: inline;
+}
+
 /* ── Filter bar ─────────────────────────────────────────────────────────── */
 .filter-bar {
   display: flex;
@@ -311,6 +330,26 @@ body {
 
 .dl-size {
   color: var(--text-dim);
+}
+
+.dl-subfolder {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 1px;
+}
+
+.dl-subfolder-icon {
+  opacity: 0.6;
+}
+
+.dl-eta {
+  color: var(--accent);
+  font-size: 11px;
+}
+
+.dl-percent {
+  font-weight: 600;
+  color: var(--text);
 }
 
 .dl-error-msg {
