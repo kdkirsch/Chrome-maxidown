@@ -1,6 +1,6 @@
-if (typeof importScripts === 'function') {
+if (typeof importScripts === 'function' && typeof FILTERS === 'undefined') {
   importScripts('../common/constants.js');
-} else if (typeof require !== 'undefined') {
+} else if (typeof require !== 'undefined' && typeof FILTERS === 'undefined') {
   const c = require('../common/constants.js');
   globalThis.FILTERS = c.FILTERS;
   globalThis.DOWNLOAD_STATES = c.DOWNLOAD_STATES;
