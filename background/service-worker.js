@@ -1,13 +1,12 @@
 if (typeof importScripts === 'function') {
   importScripts('../common/constants.js');
-}
-if (typeof require !== 'undefined') {
+} else if (typeof require !== 'undefined') {
   const c = require('../common/constants.js');
-  var FILTERS = c.FILTERS;
-  var DOWNLOAD_STATES = c.DOWNLOAD_STATES;
-  var DEFAULT_SETTINGS = c.DEFAULT_SETTINGS;
-  var MSG = c.MSG;
-  var PathUtils = c.PathUtils;
+  globalThis.FILTERS = c.FILTERS;
+  globalThis.DOWNLOAD_STATES = c.DOWNLOAD_STATES;
+  globalThis.DEFAULT_SETTINGS = c.DEFAULT_SETTINGS;
+  globalThis.MSG = c.MSG;
+  globalThis.PathUtils = c.PathUtils;
 }
 
 // ── State ────────────────────────────────────────────────────────────────────
