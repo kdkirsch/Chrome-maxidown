@@ -4,6 +4,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let downloads = [];
   let currentFilter = 'all';
   let settings = { ...DEFAULT_SETTINGS };
+  let isDragging = false;
+  let draggedId = null;
 
   // ── Load initial data ──────────────────────────────────────────────────
   chrome.runtime.sendMessage({ action: MSG.GET_DOWNLOADS }, (res) => {
@@ -72,6 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
     settings.maxConcurrent = parseInt($('settMaxConcurrent').value) || 4;
     settings.defaultPath = pathVal;
     settings.conflictAction = $('settConflictAction').value;
+    settings.duplicateAction = $('settDuplicateAction').value;
     settings.autoStart = $('settAutoStart').checked;
     chrome.runtime.sendMessage({ action: MSG.SAVE_SETTINGS, settings });
     $('settingsPanel').style.display = 'none';
@@ -81,6 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
     $('settMaxConcurrent').value = settings.maxConcurrent;
     $('settDefaultPath').value = settings.defaultPath || '';
     $('settConflictAction').value = settings.conflictAction;
+    $('settDuplicateAction').value = settings.duplicateAction || 'ask';
     $('settAutoStart').checked = settings.autoStart;
   }
 
@@ -96,6 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Render ─────────────────────────────────────────────────────────────
   function render() {
+    if (isDragging) return;
     updateStats();
 
     let filtered = downloads;
@@ -123,8 +128,19 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.addEventListener('click', () => {
         const action = btn.dataset.action;
         const id = parseInt(btn.dataset.id);
-        chrome.runtime.sendMessage({ action, id });
+        const msg = { action, id };
+        if (btn.dataset.resolution) msg.resolution = btn.dataset.resolution;
+        chrome.runtime.sendMessage(msg);
       });
+    });
+
+    // Attach drag-and-drop handlers
+    container.querySelectorAll('.dl-item').forEach(el => {
+      el.addEventListener('dragstart', handleDragStart);
+      el.addEventListener('dragend', handleDragEnd);
+      el.addEventListener('dragover', handleDragOver);
+      el.addEventListener('dragleave', handleDragLeave);
+      el.addEventListener('drop', handleDrop);
     });
   }
 
@@ -134,13 +150,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const progressClass = d.state === DOWNLOAD_STATES.COMPLETE ? 'complete'
       : d.state === DOWNLOAD_STATES.PAUSED ? 'paused'
       : d.state === DOWNLOAD_STATES.ERROR ? 'error'
+      : d.state === DOWNLOAD_STATES.DUPLICATE ? 'duplicate'
       : 'downloading';
 
     const eta = formatEta(d);
 
     return `
-      <div class="dl-item">
+      <div class="dl-item" draggable="true" data-id="${d.id}">
         <div class="dl-row">
+          <div class="dl-drag-handle" title="Drag to reorder">&#9776;</div>
           <div class="dl-status-icon ${d.state}">${statusIcon}</div>
           <div class="dl-info">
             <div class="dl-filename" title="${escAttr(d.filename)}">
@@ -159,12 +177,17 @@ document.addEventListener('DOMContentLoaded', () => {
               ${d.state === DOWNLOAD_STATES.COMPLETE
                 ? `<span style="color:var(--success)">Complete</span>${d.totalBytes > 0 ? ` <span class="dl-size">(${formatBytes(d.totalBytes)})</span>` : ''}` : ''}
               ${d.state === DOWNLOAD_STATES.QUEUED ? '<span style="color:var(--warning)">Queued</span>' : ''}
+              ${d.state === DOWNLOAD_STATES.DUPLICATE ? '<span class="dl-duplicate-msg">&#9888; File already exists in target directory</span>' : ''}
               ${d.error ? `<span class="dl-error-msg">${escHtml(d.error)}</span>` : ''}
             </div>
           </div>
           <div class="dl-actions">${actions}</div>
         </div>
-        ${d.state !== DOWNLOAD_STATES.COMPLETE && d.state !== DOWNLOAD_STATES.ERROR && d.state !== DOWNLOAD_STATES.CANCELLED ? `
+        ${d.state === DOWNLOAD_STATES.DUPLICATE ? `
+        <div class="dl-progress-bar">
+          <div class="dl-progress-fill duplicate" style="width:100%"></div>
+        </div>
+        ` : d.state !== DOWNLOAD_STATES.COMPLETE && d.state !== DOWNLOAD_STATES.ERROR && d.state !== DOWNLOAD_STATES.CANCELLED ? `
         <div class="dl-progress-bar">
           <div class="dl-progress-fill ${progressClass}" style="width:${d.progress}%"></div>
         </div>
@@ -185,6 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
       case DOWNLOAD_STATES.COMPLETE: return '&#10003;';
       case DOWNLOAD_STATES.ERROR: return '&#10007;';
       case DOWNLOAD_STATES.CANCELLED: return '&#10007;';
+      case DOWNLOAD_STATES.DUPLICATE: return '&#9888;';
       default: return '?';
     }
   }
@@ -203,6 +227,9 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (d.state === DOWNLOAD_STATES.ERROR || d.state === DOWNLOAD_STATES.CANCELLED) {
       btns.push(`<button class="btn" data-action="${MSG.RETRY_DOWNLOAD}" data-id="${d.id}">Retry</button>`);
       btns.push(`<button class="btn" data-action="${MSG.REMOVE_DOWNLOAD}" data-id="${d.id}">Remove</button>`);
+    } else if (d.state === DOWNLOAD_STATES.DUPLICATE) {
+      btns.push(`<button class="btn btn-dup-download" data-action="${MSG.RESOLVE_DUPLICATE}" data-id="${d.id}" data-resolution="download">Download Anyway</button>`);
+      btns.push(`<button class="btn btn-dup-skip" data-action="${MSG.RESOLVE_DUPLICATE}" data-id="${d.id}" data-resolution="skip">Skip</button>`);
     } else if (d.state === DOWNLOAD_STATES.COMPLETE) {
       btns.push(`<button class="btn" data-action="${MSG.REMOVE_DOWNLOAD}" data-id="${d.id}">Remove</button>`);
     }
@@ -217,6 +244,69 @@ document.addEventListener('DOMContentLoaded', () => {
     $('activeLabel').textContent = active.length;
     $('queuedLabel').textContent = queued.length;
     $('totalSpeed').textContent = formatSpeed(totalSpeed);
+  }
+
+  // ── Drag-and-drop handlers ─────────────────────────────────────────────
+  function handleDragStart(e) {
+    isDragging = true;
+    draggedId = parseInt(this.dataset.id);
+    this.classList.add('dl-dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(draggedId));
+  }
+
+  function handleDragEnd() {
+    isDragging = false;
+    draggedId = null;
+    this.classList.remove('dl-dragging');
+    document.querySelectorAll('.dl-item').forEach(el => {
+      el.classList.remove('dl-drag-over-above', 'dl-drag-over-below');
+    });
+    render();
+  }
+
+  function handleDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const targetId = parseInt(this.dataset.id);
+    if (targetId === draggedId) return;
+
+    const rect = this.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+
+    document.querySelectorAll('.dl-item').forEach(el => {
+      el.classList.remove('dl-drag-over-above', 'dl-drag-over-below');
+    });
+    this.classList.add(e.clientY < midY ? 'dl-drag-over-above' : 'dl-drag-over-below');
+  }
+
+  function handleDragLeave() {
+    this.classList.remove('dl-drag-over-above', 'dl-drag-over-below');
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    const targetId = parseInt(this.dataset.id);
+    if (!draggedId || targetId === draggedId) return;
+
+    const rect = this.getBoundingClientRect();
+    const insertBefore = e.clientY < rect.top + rect.height / 2;
+
+    // Build new order from current downloads array
+    const currentIds = downloads.map(d => d.id);
+    const withoutDragged = currentIds.filter(id => id !== draggedId);
+    const targetIndex = withoutDragged.indexOf(targetId);
+    const insertIndex = insertBefore ? targetIndex : targetIndex + 1;
+    withoutDragged.splice(insertIndex, 0, draggedId);
+
+    chrome.runtime.sendMessage({
+      action: MSG.REORDER_DOWNLOADS,
+      orderedIds: withoutDragged
+    });
+
+    document.querySelectorAll('.dl-item').forEach(el => {
+      el.classList.remove('dl-drag-over-above', 'dl-drag-over-below');
+    });
   }
 
   // ── Formatting (delegating to module-level functions) ──────────────────

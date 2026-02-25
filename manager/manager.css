@@ -289,6 +289,11 @@ body {
   color: var(--error);
 }
 
+.dl-status-icon.duplicate {
+  background: rgba(255, 171, 64, 0.2);
+  color: var(--warning);
+}
+
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
@@ -397,6 +402,75 @@ body {
 
 .dl-progress-fill.error {
   background: var(--error);
+}
+
+.dl-progress-fill.duplicate {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--warning),
+    var(--warning) 10px,
+    transparent 10px,
+    transparent 20px
+  );
+  opacity: 0.5;
+}
+
+/* ── Duplicate state ───────────────────────────────────────────────────── */
+.dl-duplicate-msg {
+  color: var(--warning);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.btn-dup-download {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.btn-dup-download:hover {
+  background: rgba(0, 230, 118, 0.1);
+}
+
+.btn-dup-skip {
+  border-color: var(--text-dim);
+  color: var(--text-dim);
+}
+
+.btn-dup-skip:hover {
+  background: rgba(136, 136, 136, 0.1);
+}
+
+/* ── Drag-and-drop ─────────────────────────────────────────────────────── */
+.dl-drag-handle {
+  cursor: grab;
+  color: var(--text-dim);
+  font-size: 14px;
+  padding: 0 4px;
+  flex-shrink: 0;
+  opacity: 0.3;
+  transition: opacity 0.15s;
+  user-select: none;
+}
+
+.dl-item:hover .dl-drag-handle {
+  opacity: 0.8;
+}
+
+.dl-drag-handle:active {
+  cursor: grabbing;
+}
+
+.dl-item.dl-dragging {
+  opacity: 0.4;
+  background: var(--bg-selected);
+}
+
+.dl-item.dl-drag-over-above {
+  border-top: 2px solid var(--accent);
+}
+
+.dl-item.dl-drag-over-below {
+  border-bottom: 2px solid var(--accent);
 }
 
 /* ── Empty state ────────────────────────────────────────────────────────── */

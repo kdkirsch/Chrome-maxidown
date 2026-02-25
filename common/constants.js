@@ -37,7 +37,8 @@ const DOWNLOAD_STATES = {
   PAUSED: 'paused',
   COMPLETE: 'complete',
   ERROR: 'error',
-  CANCELLED: 'cancelled'
+  CANCELLED: 'cancelled',
+  DUPLICATE: 'duplicate'
 };
 
 const DEFAULT_SETTINGS = {
@@ -46,6 +47,7 @@ const DEFAULT_SETTINGS = {
   showNotifications: true,
   autoStart: true,
   conflictAction: 'uniquify',
+  duplicateAction: 'ask',
   minFileSize: 0,
   maxFileSize: 0
 };
@@ -69,7 +71,9 @@ const MSG = {
   OPEN_MANAGER_SIDE_PANEL: 'openManagerSidePanel',
   RETRY_DOWNLOAD: 'retryDownload',
   REMOVE_DOWNLOAD: 'removeDownload',
-  GET_RECENT_PATHS: 'getRecentPaths'
+  GET_RECENT_PATHS: 'getRecentPaths',
+  RESOLVE_DUPLICATE: 'resolveDuplicate',
+  REORDER_DOWNLOADS: 'reorderDownloads'
 };
 
 const PathUtils = {

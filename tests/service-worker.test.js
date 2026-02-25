@@ -181,7 +181,7 @@ describe('service-worker.js', () => {
   });
 
   describe('startDownload', () => {
-    test('calls chrome.downloads.download with correct options', () => {
+    test('calls chrome.downloads.download with correct options', async () => {
       const item = {
         id: 1,
         url: 'https://example.com/file.pdf',
@@ -190,7 +190,7 @@ describe('service-worker.js', () => {
         state: DOWNLOAD_STATES.QUEUED,
         error: null
       };
-      sw.startDownload(item);
+      await sw.startDownload(item);
       expect(chrome.downloads.download).toHaveBeenCalledWith(
         expect.objectContaining({
           url: 'https://example.com/file.pdf',
@@ -201,7 +201,7 @@ describe('service-worker.js', () => {
       expect(item.state).toBe(DOWNLOAD_STATES.DOWNLOADING);
     });
 
-    test('sets subfolder/filename path when subfolder is provided', () => {
+    test('sets subfolder/filename path when subfolder is provided', async () => {
       const item = {
         id: 1,
         url: 'https://example.com/file.pdf',
@@ -210,7 +210,7 @@ describe('service-worker.js', () => {
         state: DOWNLOAD_STATES.QUEUED,
         error: null
       };
-      sw.startDownload(item);
+      await sw.startDownload(item);
       expect(chrome.downloads.download).toHaveBeenCalledWith(
         expect.objectContaining({
           filename: 'my-folder/file.pdf'
@@ -219,7 +219,7 @@ describe('service-worker.js', () => {
       );
     });
 
-    test('sanitizes subfolder in download path', () => {
+    test('sanitizes subfolder in download path', async () => {
       const item = {
         id: 1,
         url: 'https://example.com/file.pdf',
@@ -228,7 +228,7 @@ describe('service-worker.js', () => {
         state: DOWNLOAD_STATES.QUEUED,
         error: null
       };
-      sw.startDownload(item);
+      await sw.startDownload(item);
       expect(chrome.downloads.download).toHaveBeenCalledWith(
         expect.objectContaining({
           filename: 'my-folder/sub/file.pdf'
@@ -237,7 +237,7 @@ describe('service-worker.js', () => {
       );
     });
 
-    test('handles download error from Chrome API', () => {
+    test('handles download error from Chrome API', async () => {
       chrome.downloads.download.mockImplementation((opts, cb) => {
         chrome.runtime.lastError = { message: 'Network error' };
         cb(undefined);
@@ -251,12 +251,12 @@ describe('service-worker.js', () => {
         state: DOWNLOAD_STATES.QUEUED,
         error: null
       };
-      sw.startDownload(item);
+      await sw.startDownload(item);
       expect(item.state).toBe(DOWNLOAD_STATES.ERROR);
       expect(item.error).toBe('Network error');
     });
 
-    test('assigns downloadId on success', () => {
+    test('assigns downloadId on success', async () => {
       chrome.downloads.download.mockImplementation((opts, cb) => cb(42));
       const item = {
         id: 1,
@@ -266,8 +266,59 @@ describe('service-worker.js', () => {
         state: DOWNLOAD_STATES.QUEUED,
         error: null
       };
-      sw.startDownload(item);
+      await sw.startDownload(item);
       expect(item.downloadId).toBe(42);
+    });
+
+    test('sets DUPLICATE state when file exists and setting is ask', async () => {
+      sw.settings = { ...sw.settings, duplicateAction: 'ask' };
+      chrome.downloads.search.mockImplementation((query, cb) => {
+        cb([{ filename: '/Users/test/Downloads/file.pdf', state: 'complete' }]);
+      });
+      const item = {
+        id: 1,
+        url: 'https://example.com/file.pdf',
+        filename: 'file.pdf',
+        subfolder: '',
+        state: DOWNLOAD_STATES.QUEUED,
+        error: null
+      };
+      await sw.startDownload(item);
+      expect(item.state).toBe(DOWNLOAD_STATES.DUPLICATE);
+      expect(chrome.downloads.download).not.toHaveBeenCalled();
+    });
+
+    test('skips download when file exists and setting is skip', async () => {
+      sw.settings = { ...sw.settings, duplicateAction: 'skip' };
+      chrome.downloads.search.mockImplementation((query, cb) => {
+        cb([{ filename: '/Users/test/Downloads/file.pdf', state: 'complete' }]);
+      });
+      const item = {
+        id: 1,
+        url: 'https://example.com/file.pdf',
+        filename: 'file.pdf',
+        subfolder: '',
+        state: DOWNLOAD_STATES.QUEUED,
+        error: null
+      };
+      await sw.startDownload(item);
+      expect(item.state).toBe(DOWNLOAD_STATES.CANCELLED);
+      expect(item.error).toContain('Skipped');
+    });
+
+    test('proceeds without check when setting is download', async () => {
+      sw.settings = { ...sw.settings, duplicateAction: 'download' };
+      const item = {
+        id: 1,
+        url: 'https://example.com/file.pdf',
+        filename: 'file.pdf',
+        subfolder: '',
+        state: DOWNLOAD_STATES.QUEUED,
+        error: null
+      };
+      await sw.startDownload(item);
+      expect(item.state).toBe(DOWNLOAD_STATES.DOWNLOADING);
+      expect(chrome.downloads.download).toHaveBeenCalled();
     });
   });
 

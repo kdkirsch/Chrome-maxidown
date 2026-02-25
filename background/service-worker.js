@@ -166,7 +166,57 @@ function processQueue() {
   }
 }
 
-function startDownload(item) {
+function checkDuplicate(item) {
+  return new Promise((resolve) => {
+    const subfolder = PathUtils.sanitize(item.subfolder);
+    const targetFilename = subfolder && item.filename
+      ? `${subfolder}/${item.filename}`
+      : item.filename || '';
+
+    if (!targetFilename) { resolve(false); return; }
+
+    chrome.downloads.search(
+      { state: 'complete', exists: true },
+      (results) => {
+        if (chrome.runtime.lastError || !results) {
+          resolve(false);
+          return;
+        }
+        const hasDuplicate = results.some(r =>
+          r.filename && r.filename.replace(/\\/g, '/').endsWith(targetFilename)
+        );
+        resolve(hasDuplicate);
+      }
+    );
+  });
+}
+
+async function startDownload(item) {
+  item.state = DOWNLOAD_STATES.DOWNLOADING;
+  item.error = null;
+
+  if (settings.duplicateAction !== 'download') {
+    const isDuplicate = await checkDuplicate(item);
+    if (isDuplicate) {
+      if (settings.duplicateAction === 'skip') {
+        item.state = DOWNLOAD_STATES.CANCELLED;
+        item.error = 'Skipped (duplicate file exists)';
+        processQueue();
+        broadcastUpdate();
+        return;
+      }
+      // 'ask' mode
+      item.state = DOWNLOAD_STATES.DUPLICATE;
+      processQueue();
+      broadcastUpdate();
+      return;
+    }
+  }
+
+  performDownload(item);
+}
+
+function performDownload(item) {
   item.state = DOWNLOAD_STATES.DOWNLOADING;
   item.error = null;
 
@@ -342,6 +392,22 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       break;
     }
 
+    case MSG.RESOLVE_DUPLICATE: {
+      const item = downloads.find(d => d.id === msg.id);
+      if (item && item.state === DOWNLOAD_STATES.DUPLICATE) {
+        if (msg.resolution === 'download') {
+          performDownload(item);
+        } else {
+          item.state = DOWNLOAD_STATES.CANCELLED;
+          item.error = 'Skipped (duplicate file exists)';
+          processQueue();
+        }
+      }
+      broadcastUpdate();
+      sendResponse({ ok: true });
+      break;
+    }
+
     case MSG.PAUSE_ALL:
       for (const item of downloads) {
         if (item.state === DOWNLOAD_STATES.DOWNLOADING && item.downloadId) {
@@ -379,6 +445,28 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       broadcastUpdate();
       sendResponse({ ok: true });
       break;
+
+    case MSG.REORDER_DOWNLOADS: {
+      if (Array.isArray(msg.orderedIds)) {
+        const idToItem = new Map(downloads.map(d => [d.id, d]));
+        const reordered = [];
+        for (const id of msg.orderedIds) {
+          const item = idToItem.get(id);
+          if (item) {
+            reordered.push(item);
+            idToItem.delete(id);
+          }
+        }
+        for (const item of idToItem.values()) {
+          reordered.push(item);
+        }
+        downloads = reordered;
+        processQueue();
+      }
+      broadcastUpdate();
+      sendResponse({ ok: true });
+      break;
+    }
 
     case MSG.GET_DOWNLOADS:
       sendResponse({ downloads: downloads.map(sanitizeDownload) });
@@ -466,6 +554,8 @@ if (typeof module !== 'undefined') {
     addDownloads,
     processQueue,
     startDownload,
+    performDownload,
+    checkDuplicate,
     filenameFromUrl,
     sanitizeDownload,
     broadcastUpdate,
