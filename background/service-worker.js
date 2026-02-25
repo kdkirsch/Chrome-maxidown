@@ -205,7 +205,16 @@ chrome.downloads.onChanged.addListener((delta) => {
     if (delta.state.current === 'complete') {
       item.state = DOWNLOAD_STATES.COMPLETE;
       item.progress = 100;
-      processQueue();
+      // Fetch final byte counts from Chrome before broadcasting
+      chrome.downloads.search({ id: delta.id }, (results) => {
+        if (results && results.length > 0) {
+          item.bytesReceived = results[0].bytesReceived || 0;
+          item.totalBytes = results[0].totalBytes || 0;
+        }
+        processQueue();
+        broadcastUpdate();
+      });
+      return;
     } else if (delta.state.current === 'interrupted') {
       item.state = DOWNLOAD_STATES.ERROR;
       item.error = delta.error?.current || 'Download interrupted';
