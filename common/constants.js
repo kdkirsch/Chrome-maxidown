@@ -66,6 +66,7 @@ const MSG = {
   DOWNLOAD_UPDATE: 'downloadUpdate',
   OPEN_SELECTOR: 'openSelector',
   OPEN_MANAGER: 'openManager',
+  OPEN_MANAGER_SIDE_PANEL: 'openManagerSidePanel',
   RETRY_DOWNLOAD: 'retryDownload',
   REMOVE_DOWNLOAD: 'removeDownload',
   GET_RECENT_PATHS: 'getRecentPaths'

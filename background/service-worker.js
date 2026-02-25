@@ -81,20 +81,30 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
 // ── Open selector / manager pages ────────────────────────────────────────────
 function openSelector(tab, mode) {
+  function openSelectorTab(data) {
+    const encoded = encodeURIComponent(JSON.stringify(data));
+    const url = chrome.runtime.getURL(
+      `selector/selector.html?mode=${mode}&tabUrl=${encodeURIComponent(tab.url)}&data=${encoded}`
+    );
+    chrome.tabs.create({ url });
+  }
+
   chrome.scripting.executeScript({
     target: { tabId: tab.id },
     files: ['content/scanner.js']
   }, () => {
+    if (chrome.runtime.lastError) {
+      // Injection failed (e.g., chrome:// page) — open selector with empty data
+      openSelectorTab({ links: [], media: [], pageUrl: tab.url, pageTitle: tab.title || '' });
+      return;
+    }
     chrome.tabs.sendMessage(tab.id, { action: MSG.SCAN_PAGE }, (result) => {
       if (chrome.runtime.lastError || !result) {
-        console.warn('Scan failed:', chrome.runtime.lastError?.message);
+        // Scan failed — open selector with empty data instead of silently failing
+        openSelectorTab({ links: [], media: [], pageUrl: tab.url, pageTitle: tab.title || '' });
         return;
       }
-      const encoded = encodeURIComponent(JSON.stringify(result));
-      const url = chrome.runtime.getURL(
-        `selector/selector.html?mode=${mode}&tabUrl=${encodeURIComponent(tab.url)}&data=${encoded}`
-      );
-      chrome.tabs.create({ url });
+      openSelectorTab(result);
     });
   });
 }
@@ -388,6 +398,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       openManager();
       sendResponse({ ok: true });
       break;
+
+    case MSG.OPEN_MANAGER_SIDE_PANEL: {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0]) {
+          chrome.sidePanel.open({ tabId: tabs[0].id });
+        }
+      });
+      sendResponse({ ok: true });
+      break;
+    }
 
     case MSG.GET_RECENT_PATHS:
       sendResponse({ recentPaths });

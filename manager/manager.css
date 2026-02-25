@@ -442,3 +442,45 @@ body {
 .download-list::-webkit-scrollbar-thumb:hover {
   background: #444;
 }
+
+/* ── Side panel responsive layout ──────────────────────────────────────── */
+@media (max-width: 480px) {
+  .header {
+    flex-wrap: wrap;
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .header-stats {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .header-right {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .header-right .btn {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
+  .filter-bar {
+    padding: 6px 12px;
+    flex-wrap: wrap;
+  }
+
+  .dl-item {
+    padding: 10px 12px;
+  }
+
+  .dl-actions {
+    flex-direction: column;
+  }
+
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+}

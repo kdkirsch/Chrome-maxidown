@@ -77,6 +77,7 @@ describe('constants.js', () => {
         'PAUSE_ALL', 'RESUME_ALL', 'CLEAR_COMPLETE',
         'GET_DOWNLOADS', 'GET_SETTINGS', 'SAVE_SETTINGS',
         'DOWNLOAD_UPDATE', 'OPEN_SELECTOR', 'OPEN_MANAGER',
+        'OPEN_MANAGER_SIDE_PANEL',
         'RETRY_DOWNLOAD', 'REMOVE_DOWNLOAD', 'GET_RECENT_PATHS'
       ];
       for (const key of expectedKeys) {
