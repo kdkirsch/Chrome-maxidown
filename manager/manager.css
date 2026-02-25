@@ -177,6 +177,25 @@ body {
   padding: 5px 8px;
 }
 
+.setting-row input[type="text"].input-error {
+  border-color: var(--error);
+}
+
+.setting-hint {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.setting-error {
+  font-size: 10px;
+  color: var(--error);
+  display: none;
+}
+
+.setting-error.visible {
+  display: inline;
+}
+
 /* ── Filter bar ─────────────────────────────────────────────────────────── */
 .filter-bar {
   display: flex;
@@ -270,6 +289,11 @@ body {
   color: var(--error);
 }
 
+.dl-status-icon.duplicate {
+  background: rgba(255, 171, 64, 0.2);
+  color: var(--warning);
+}
+
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
@@ -311,6 +335,26 @@ body {
 
 .dl-size {
   color: var(--text-dim);
+}
+
+.dl-subfolder {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 1px;
+}
+
+.dl-subfolder-icon {
+  opacity: 0.6;
+}
+
+.dl-eta {
+  color: var(--accent);
+  font-size: 11px;
+}
+
+.dl-percent {
+  font-weight: 600;
+  color: var(--text);
 }
 
 .dl-error-msg {
@@ -360,6 +404,75 @@ body {
   background: var(--error);
 }
 
+.dl-progress-fill.duplicate {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--warning),
+    var(--warning) 10px,
+    transparent 10px,
+    transparent 20px
+  );
+  opacity: 0.5;
+}
+
+/* ── Duplicate state ───────────────────────────────────────────────────── */
+.dl-duplicate-msg {
+  color: var(--warning);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.btn-dup-download {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.btn-dup-download:hover {
+  background: rgba(0, 230, 118, 0.1);
+}
+
+.btn-dup-skip {
+  border-color: var(--text-dim);
+  color: var(--text-dim);
+}
+
+.btn-dup-skip:hover {
+  background: rgba(136, 136, 136, 0.1);
+}
+
+/* ── Drag-and-drop ─────────────────────────────────────────────────────── */
+.dl-drag-handle {
+  cursor: grab;
+  color: var(--text-dim);
+  font-size: 14px;
+  padding: 0 4px;
+  flex-shrink: 0;
+  opacity: 0.3;
+  transition: opacity 0.15s;
+  user-select: none;
+}
+
+.dl-item:hover .dl-drag-handle {
+  opacity: 0.8;
+}
+
+.dl-drag-handle:active {
+  cursor: grabbing;
+}
+
+.dl-item.dl-dragging {
+  opacity: 0.4;
+  background: var(--bg-selected);
+}
+
+.dl-item.dl-drag-over-above {
+  border-top: 2px solid var(--accent);
+}
+
+.dl-item.dl-drag-over-below {
+  border-bottom: 2px solid var(--accent);
+}
+
 /* ── Empty state ────────────────────────────────────────────────────────── */
 .empty-state {
   display: flex;
@@ -402,4 +515,46 @@ body {
 
 .download-list::-webkit-scrollbar-thumb:hover {
   background: #444;
+}
+
+/* ── Side panel responsive layout ──────────────────────────────────────── */
+@media (max-width: 480px) {
+  .header {
+    flex-wrap: wrap;
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .header-stats {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .header-right {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .header-right .btn {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
+  .filter-bar {
+    padding: 6px 12px;
+    flex-wrap: wrap;
+  }
+
+  .dl-item {
+    padding: 10px 12px;
+  }
+
+  .dl-actions {
+    flex-direction: column;
+  }
+
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
 }

@@ -1,32 +1,35 @@
-if (typeof importScripts === 'function') {
+if (typeof importScripts === 'function' && typeof FILTERS === 'undefined') {
   importScripts('../common/constants.js');
-}
-if (typeof require !== 'undefined') {
+} else if (typeof require !== 'undefined' && typeof FILTERS === 'undefined') {
   const c = require('../common/constants.js');
-  var FILTERS = c.FILTERS;
-  var DOWNLOAD_STATES = c.DOWNLOAD_STATES;
-  var DEFAULT_SETTINGS = c.DEFAULT_SETTINGS;
-  var MSG = c.MSG;
+  globalThis.FILTERS = c.FILTERS;
+  globalThis.DOWNLOAD_STATES = c.DOWNLOAD_STATES;
+  globalThis.DEFAULT_SETTINGS = c.DEFAULT_SETTINGS;
+  globalThis.MSG = c.MSG;
+  globalThis.PathUtils = c.PathUtils;
 }
 
 // ── State ────────────────────────────────────────────────────────────────────
-let downloads = [];   // { id, url, filename, state, downloadId, progress, speed, error, addedAt }
+let downloads = [];   // { id, url, filename, subfolder, state, downloadId, progress, speed, error, addedAt }
 let settings = { ...DEFAULT_SETTINGS };
 let nextId = 1;
+let recentPaths = [];
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.local.get(['settings', 'nextId'], (res) => {
+  chrome.storage.local.get(['settings', 'nextId', 'recentPaths'], (res) => {
     if (res.settings) settings = { ...DEFAULT_SETTINGS, ...res.settings };
     if (res.nextId) nextId = res.nextId;
+    if (res.recentPaths) recentPaths = res.recentPaths;
   });
   createContextMenus();
 });
 
 chrome.runtime.onStartup.addListener(() => {
-  chrome.storage.local.get(['settings', 'nextId'], (res) => {
+  chrome.storage.local.get(['settings', 'nextId', 'recentPaths'], (res) => {
     if (res.settings) settings = { ...DEFAULT_SETTINGS, ...res.settings };
     if (res.nextId) nextId = res.nextId;
+    if (res.recentPaths) recentPaths = res.recentPaths;
   });
 });
 
@@ -77,20 +80,30 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
 // ── Open selector / manager pages ────────────────────────────────────────────
 function openSelector(tab, mode) {
+  function openSelectorTab(data) {
+    const encoded = encodeURIComponent(JSON.stringify(data));
+    const url = chrome.runtime.getURL(
+      `selector/selector.html?mode=${mode}&tabUrl=${encodeURIComponent(tab.url)}&data=${encoded}`
+    );
+    chrome.tabs.create({ url });
+  }
+
   chrome.scripting.executeScript({
     target: { tabId: tab.id },
     files: ['content/scanner.js']
   }, () => {
+    if (chrome.runtime.lastError) {
+      // Injection failed (e.g., chrome:// page) — open selector with empty data
+      openSelectorTab({ links: [], media: [], pageUrl: tab.url, pageTitle: tab.title || '' });
+      return;
+    }
     chrome.tabs.sendMessage(tab.id, { action: MSG.SCAN_PAGE }, (result) => {
       if (chrome.runtime.lastError || !result) {
-        console.warn('Scan failed:', chrome.runtime.lastError?.message);
+        // Scan failed — open selector with empty data instead of silently failing
+        openSelectorTab({ links: [], media: [], pageUrl: tab.url, pageTitle: tab.title || '' });
         return;
       }
-      const encoded = encodeURIComponent(JSON.stringify(result));
-      const url = chrome.runtime.getURL(
-        `selector/selector.html?mode=${mode}&tabUrl=${encodeURIComponent(tab.url)}&data=${encoded}`
-      );
-      chrome.tabs.create({ url });
+      openSelectorTab(result);
     });
   });
 }
@@ -108,14 +121,18 @@ function openManager() {
 
 // ── Download Queue ───────────────────────────────────────────────────────────
 function addDownloads(items) {
+  let batchSubfolder = '';
   for (const item of items) {
     const filename = filenameFromUrl(item.url);
+    const rawSubfolder = item.subfolder || settings.defaultPath;
+    const subfolder = PathUtils.sanitize(rawSubfolder);
+    if (subfolder) batchSubfolder = subfolder;
     downloads.push({
       id: nextId++,
       url: item.url,
       filename: item.filename || filename,
       referrer: item.referrer || '',
-      subfolder: item.subfolder || settings.defaultPath,
+      subfolder,
       state: settings.autoStart ? DOWNLOAD_STATES.QUEUED : DOWNLOAD_STATES.PAUSED,
       downloadId: null,
       progress: 0,
@@ -125,6 +142,11 @@ function addDownloads(items) {
       error: null,
       addedAt: Date.now()
     });
+  }
+  // Track recently used paths
+  if (batchSubfolder) {
+    recentPaths = [batchSubfolder, ...recentPaths.filter(p => p !== batchSubfolder)].slice(0, 10);
+    chrome.storage.local.set({ recentPaths });
   }
   chrome.storage.local.set({ nextId });
   processQueue();
@@ -144,19 +166,69 @@ function processQueue() {
   }
 }
 
-function startDownload(item) {
+function checkDuplicate(item) {
+  return new Promise((resolve) => {
+    const subfolder = PathUtils.sanitize(item.subfolder);
+    const targetFilename = subfolder && item.filename
+      ? `${subfolder}/${item.filename}`
+      : item.filename || '';
+
+    if (!targetFilename) { resolve(false); return; }
+
+    chrome.downloads.search(
+      { state: 'complete', exists: true },
+      (results) => {
+        if (chrome.runtime.lastError || !results) {
+          resolve(false);
+          return;
+        }
+        const hasDuplicate = results.some(r =>
+          r.filename && r.filename.replace(/\\/g, '/').endsWith(targetFilename)
+        );
+        resolve(hasDuplicate);
+      }
+    );
+  });
+}
+
+async function startDownload(item) {
   item.state = DOWNLOAD_STATES.DOWNLOADING;
   item.error = null;
+
+  if (settings.duplicateAction !== 'download') {
+    const isDuplicate = await checkDuplicate(item);
+    if (isDuplicate) {
+      if (settings.duplicateAction === 'skip') {
+        item.state = DOWNLOAD_STATES.CANCELLED;
+        item.error = 'Skipped (duplicate file exists)';
+        processQueue();
+        broadcastUpdate();
+        return;
+      }
+      // 'ask' mode
+      item.state = DOWNLOAD_STATES.DUPLICATE;
+      processQueue();
+      broadcastUpdate();
+      return;
+    }
+  }
+
+  performDownload(item);
+}
+
+function performDownload(item) {
+  item.state = DOWNLOAD_STATES.DOWNLOADING;
+  item.error = null;
+
+  const subfolder = PathUtils.sanitize(item.subfolder);
 
   const options = {
     url: item.url,
     conflictAction: settings.conflictAction
   };
 
-  if (item.subfolder && item.filename) {
-    options.filename = item.subfolder
-      ? `${item.subfolder}/${item.filename}`
-      : item.filename;
+  if (subfolder && item.filename) {
+    options.filename = `${subfolder}/${item.filename}`;
   } else if (item.filename) {
     options.filename = item.filename;
   }
@@ -183,7 +255,16 @@ chrome.downloads.onChanged.addListener((delta) => {
     if (delta.state.current === 'complete') {
       item.state = DOWNLOAD_STATES.COMPLETE;
       item.progress = 100;
-      processQueue();
+      // Fetch final byte counts from Chrome before broadcasting
+      chrome.downloads.search({ id: delta.id }, (results) => {
+        if (results && results.length > 0) {
+          item.bytesReceived = results[0].bytesReceived || 0;
+          item.totalBytes = results[0].totalBytes || 0;
+        }
+        processQueue();
+        broadcastUpdate();
+      });
+      return;
     } else if (delta.state.current === 'interrupted') {
       item.state = DOWNLOAD_STATES.ERROR;
       item.error = delta.error?.current || 'Download interrupted';
@@ -311,6 +392,22 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       break;
     }
 
+    case MSG.RESOLVE_DUPLICATE: {
+      const item = downloads.find(d => d.id === msg.id);
+      if (item && item.state === DOWNLOAD_STATES.DUPLICATE) {
+        if (msg.resolution === 'download') {
+          performDownload(item);
+        } else {
+          item.state = DOWNLOAD_STATES.CANCELLED;
+          item.error = 'Skipped (duplicate file exists)';
+          processQueue();
+        }
+      }
+      broadcastUpdate();
+      sendResponse({ ok: true });
+      break;
+    }
+
     case MSG.PAUSE_ALL:
       for (const item of downloads) {
         if (item.state === DOWNLOAD_STATES.DOWNLOADING && item.downloadId) {
@@ -349,6 +446,28 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       sendResponse({ ok: true });
       break;
 
+    case MSG.REORDER_DOWNLOADS: {
+      if (Array.isArray(msg.orderedIds)) {
+        const idToItem = new Map(downloads.map(d => [d.id, d]));
+        const reordered = [];
+        for (const id of msg.orderedIds) {
+          const item = idToItem.get(id);
+          if (item) {
+            reordered.push(item);
+            idToItem.delete(id);
+          }
+        }
+        for (const item of idToItem.values()) {
+          reordered.push(item);
+        }
+        downloads = reordered;
+        processQueue();
+      }
+      broadcastUpdate();
+      sendResponse({ ok: true });
+      break;
+    }
+
     case MSG.GET_DOWNLOADS:
       sendResponse({ downloads: downloads.map(sanitizeDownload) });
       break;
@@ -376,6 +495,20 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       sendResponse({ ok: true });
       break;
 
+    case MSG.OPEN_MANAGER_SIDE_PANEL: {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0]) {
+          chrome.sidePanel.open({ tabId: tabs[0].id });
+        }
+      });
+      sendResponse({ ok: true });
+      break;
+    }
+
+    case MSG.GET_RECENT_PATHS:
+      sendResponse({ recentPaths });
+      break;
+
     default:
       sendResponse({ error: 'Unknown action' });
   }
@@ -393,6 +526,7 @@ function sanitizeDownload(d) {
     id: d.id,
     url: d.url,
     filename: d.filename,
+    subfolder: d.subfolder || '',
     state: d.state,
     progress: d.progress,
     bytesReceived: d.bytesReceived,
@@ -420,6 +554,8 @@ if (typeof module !== 'undefined') {
     addDownloads,
     processQueue,
     startDownload,
+    performDownload,
+    checkDuplicate,
     filenameFromUrl,
     sanitizeDownload,
     broadcastUpdate,

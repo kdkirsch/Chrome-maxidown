@@ -1,8 +1,4 @@
 const _maxidownScanner = (() => {
-  // Prevent double injection in browser context
-  if (typeof window !== 'undefined' && window.__maxidownScanned) return {};
-  if (typeof window !== 'undefined') window.__maxidownScanned = true;
-
   if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
     chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       if (msg.action === 'scanPage') {

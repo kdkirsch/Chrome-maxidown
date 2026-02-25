@@ -39,6 +39,9 @@ const chrome = {
     update: jest.fn(),
     query: jest.fn((q, cb) => cb && cb([])),
     sendMessage: jest.fn((tabId, msg, cb) => cb && cb())
+  },
+  sidePanel: {
+    open: jest.fn()
   }
 };
 

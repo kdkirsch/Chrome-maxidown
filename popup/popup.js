@@ -3,18 +3,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Button handlers
   $('grabLinks').addEventListener('click', () => {
-    chrome.runtime.sendMessage({ action: MSG.OPEN_SELECTOR, mode: 'links' });
-    window.close();
+    chrome.runtime.sendMessage({ action: MSG.OPEN_SELECTOR, mode: 'links' }, () => {
+      window.close();
+    });
   });
 
   $('grabMedia').addEventListener('click', () => {
-    chrome.runtime.sendMessage({ action: MSG.OPEN_SELECTOR, mode: 'media' });
-    window.close();
+    chrome.runtime.sendMessage({ action: MSG.OPEN_SELECTOR, mode: 'media' }, () => {
+      window.close();
+    });
   });
 
   $('openManager').addEventListener('click', () => {
-    chrome.runtime.sendMessage({ action: MSG.OPEN_MANAGER });
-    window.close();
+    chrome.runtime.sendMessage({ action: MSG.OPEN_MANAGER }, () => {
+      window.close();
+    });
+  });
+
+  $('openSidePanel').addEventListener('click', () => {
+    chrome.runtime.sendMessage({ action: MSG.OPEN_MANAGER_SIDE_PANEL }, () => {
+      window.close();
+    });
   });
 
   // Load current download stats

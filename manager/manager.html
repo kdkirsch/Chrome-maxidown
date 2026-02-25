@@ -42,8 +42,10 @@
           <input type="number" id="settMaxConcurrent" min="1" max="20" value="4">
         </div>
         <div class="setting-row">
-          <label>Default subfolder:</label>
-          <input type="text" id="settDefaultPath" placeholder="Leave empty for default">
+          <label>Default download directory:</label>
+          <input type="text" id="settDefaultPath" placeholder="e.g. my-downloads">
+          <span class="setting-hint" id="settPathHint">relative to Downloads folder</span>
+          <span class="setting-error" id="settPathError"></span>
         </div>
         <div class="setting-row">
           <label>On filename conflict:</label>
@@ -51,6 +53,14 @@
             <option value="uniquify">Rename (add number)</option>
             <option value="overwrite">Overwrite</option>
             <option value="prompt">Prompt</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <label>When file already exists:</label>
+          <select id="settDuplicateAction">
+            <option value="ask">Ask me</option>
+            <option value="download">Always download</option>
+            <option value="skip">Always skip</option>
           </select>
         </div>
         <div class="setting-row">

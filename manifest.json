@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "MaxiDown",
-  "version": "1.0.0",
+  "version": "1.1.4",
   "description": "A powerful download manager for Chrome. Grab all links, images, and media from any page with advanced filtering — inspired by DownThemAll.",
   "permissions": [
     "downloads",
@@ -10,7 +10,8 @@
     "scripting",
     "storage",
     "contextMenus",
-    "tabs"
+    "tabs",
+    "sidePanel"
   ],
   "host_permissions": ["<all_urls>"],
   "background": {
@@ -29,13 +30,9 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content/scanner.js"],
-      "run_at": "document_idle"
-    }
-  ],
+  "side_panel": {
+    "default_path": "manager/manager.html"
+  },
   "web_accessible_resources": [
     {
       "resources": [

@@ -20,6 +20,76 @@ document.addEventListener('DOMContentLoaded', () => {
   let activeFilters = new Set();
   let customFilterText = '';
   let items = []; // current visible items with .selected property
+  let pathValid = true;
+
+  // ── Pre-populate subfolder from settings ──────────────────────────────
+  chrome.runtime.sendMessage({ action: MSG.GET_SETTINGS }, (res) => {
+    if (res && res.settings && res.settings.defaultPath) {
+      $('subfolder').value = res.settings.defaultPath;
+      updatePathPreview();
+    }
+  });
+
+  // ── Path preview & validation ─────────────────────────────────────────
+  function updatePathPreview() {
+    const subfolder = $('subfolder').value.trim();
+    const sampleFile = items.length > 0 ? items[0].filename : 'example-file.ext';
+    const preview = PathUtils.buildPreview(subfolder, sampleFile);
+    $('pathPreview').textContent = preview;
+
+    const validation = PathUtils.validate(subfolder);
+    const errorEl = $('pathError');
+    const inputEl = $('subfolder');
+    if (!validation.valid) {
+      errorEl.textContent = validation.error;
+      errorEl.classList.add('visible');
+      inputEl.classList.add('input-error');
+      $('downloadSelected').disabled = true;
+      pathValid = false;
+    } else {
+      errorEl.classList.remove('visible');
+      inputEl.classList.remove('input-error');
+      $('downloadSelected').disabled = false;
+      pathValid = true;
+    }
+  }
+
+  $('subfolder').addEventListener('input', updatePathPreview);
+
+  // ── Recent paths dropdown ─────────────────────────────────────────────
+  $('recentPathsBtn').addEventListener('click', () => {
+    const dropdown = $('recentPathsDropdown');
+    if (dropdown.classList.contains('open')) {
+      dropdown.classList.remove('open');
+      return;
+    }
+    chrome.runtime.sendMessage({ action: MSG.GET_RECENT_PATHS }, (res) => {
+      const paths = (res && res.recentPaths) || [];
+      if (paths.length === 0) {
+        dropdown.innerHTML = '<div class="recent-path-item" style="color:var(--text-dim)">No recent directories</div>';
+      } else {
+        dropdown.innerHTML = paths.map(p =>
+          `<div class="recent-path-item" data-path="${escAttr(p)}">${escHtml(p)}</div>`
+        ).join('');
+        dropdown.querySelectorAll('.recent-path-item[data-path]').forEach(el => {
+          el.addEventListener('click', () => {
+            $('subfolder').value = el.dataset.path;
+            dropdown.classList.remove('open');
+            updatePathPreview();
+          });
+        });
+      }
+      dropdown.classList.add('open');
+    });
+  });
+
+  // Close dropdown on outside click
+  document.addEventListener('click', (e) => {
+    const dropdown = $('recentPathsDropdown');
+    if (!e.target.closest('.path-input-wrap')) {
+      dropdown.classList.remove('open');
+    }
+  });
 
   // ── Build filter chips ─────────────────────────────────────────────────
   function buildFilterChips() {
@@ -116,6 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       `;
       updateCounts();
+      updatePathPreview();
       return;
     }
 
@@ -162,6 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     updateCounts();
+    updatePathPreview();
   }
 
   function updateCounts() {
@@ -242,6 +314,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Download selected ──────────────────────────────────────────────────
   $('downloadSelected').addEventListener('click', () => {
+    if (!pathValid) return;
     const selected = items.filter(i => i.selected);
     if (selected.length === 0) return;
 

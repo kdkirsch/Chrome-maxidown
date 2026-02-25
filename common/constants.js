@@ -37,7 +37,8 @@ const DOWNLOAD_STATES = {
   PAUSED: 'paused',
   COMPLETE: 'complete',
   ERROR: 'error',
-  CANCELLED: 'cancelled'
+  CANCELLED: 'cancelled',
+  DUPLICATE: 'duplicate'
 };
 
 const DEFAULT_SETTINGS = {
@@ -46,6 +47,7 @@ const DEFAULT_SETTINGS = {
   showNotifications: true,
   autoStart: true,
   conflictAction: 'uniquify',
+  duplicateAction: 'ask',
   minFileSize: 0,
   maxFileSize: 0
 };
@@ -66,10 +68,44 @@ const MSG = {
   DOWNLOAD_UPDATE: 'downloadUpdate',
   OPEN_SELECTOR: 'openSelector',
   OPEN_MANAGER: 'openManager',
+  OPEN_MANAGER_SIDE_PANEL: 'openManagerSidePanel',
   RETRY_DOWNLOAD: 'retryDownload',
-  REMOVE_DOWNLOAD: 'removeDownload'
+  REMOVE_DOWNLOAD: 'removeDownload',
+  GET_RECENT_PATHS: 'getRecentPaths',
+  RESOLVE_DUPLICATE: 'resolveDuplicate',
+  REORDER_DOWNLOADS: 'reorderDownloads'
+};
+
+const PathUtils = {
+  validate(path) {
+    if (!path || !path.trim()) return { valid: true, error: null };
+    const p = path.trim();
+    if (p.length > 200) return { valid: false, error: 'Path too long (max 200 characters)' };
+    if (/[<>:"|?*]/.test(p)) return { valid: false, error: 'Path contains invalid characters: < > : " | ? *' };
+    if (/\.\.[\\/]/.test(p) || p === '..') return { valid: false, error: 'Path traversal (..) is not allowed' };
+    if (/^[/\\]/.test(p) || /^[a-zA-Z]:/.test(p)) return { valid: false, error: 'Absolute paths are not allowed' };
+    return { valid: true, error: null };
+  },
+
+  sanitize(path) {
+    if (!path) return '';
+    let p = path.trim();
+    p = p.replace(/\\/g, '/');
+    p = p.replace(/[<>:"|?*]/g, '');
+    p = p.replace(/\.\.\/|\.\.$/g, '');
+    p = p.replace(/\/+/g, '/');
+    p = p.replace(/^\/|\/$/g, '');
+    return p;
+  },
+
+  buildPreview(subfolder, filename) {
+    const parts = ['Downloads'];
+    if (subfolder && subfolder.trim()) parts.push(subfolder.trim());
+    if (filename) parts.push(filename);
+    return parts.join(' / ');
+  }
 };
 
 if (typeof module !== 'undefined') {
-  module.exports = { FILTERS, DOWNLOAD_STATES, DEFAULT_SETTINGS, MSG };
+  module.exports = { FILTERS, DOWNLOAD_STATES, DEFAULT_SETTINGS, MSG, PathUtils };
 }
